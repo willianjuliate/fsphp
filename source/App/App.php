@@ -77,6 +77,7 @@ class App extends Controller
             )
             ->limit(5)->fetch(true);
 
+
         if ($chart) {
             $charCategories = [];
             $charExpense = [];
@@ -110,6 +111,7 @@ class App extends Controller
             )
             ->order("due_at")
             ->fetch(true);
+
         // END INCOME && EXPANSE
         //WALLET
 
@@ -185,14 +187,14 @@ class App extends Controller
             return;
         }
 
-        if (!empty($data["enrollments"]) && ($data["enrollments"] < 2) || ($data['enrollments'] > 420) ) {
+        if (!empty($data["enrollments"]) && ($data["enrollments"] < 2) || ($data['enrollments'] > 420)) {
             $json['message'] = $this->message->warning("Ooops! {$this->user->first_name}! Para lançar o número de parcelas deve ser entre 2 e 420.")->render();
             echo json_encode($json);
             return;
         }
 
         $data = filter_var_array($data, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-        $status = (date($data['due_at']) <= date("Y-m-d") ? "paid": "unpaid");
+        $status = (date($data['due_at']) <= date("Y-m-d") ? "paid" : "unpaid");
 
         $invoice = (new AppInvoice());
         $invoice->user_id = $this->user->id;
@@ -201,10 +203,44 @@ class App extends Controller
         $invoice->invoice_of = null;
         $invoice->description = $data['description'];
         $invoice->type = $data["repeat_when"] == "fixed" ? "fixed_{$data['type']}" : $data["type"];
-        $invoice->value = str_replace(',', '.', $data['value']);
+        $invoice->value = str_replace([".", ","], ["", "."], $data['value']);
+        $invoice->currency = $data['currency'];
+        $invoice->due_at = $data['due_at'];
+        $invoice->repeat_when = $data['repeat_when'];
+        $invoice->period = (!empty($data['period']) ? $data['period'] : "month");
+        $invoice->enrollments = (!empty($data['enrollments']) ? $data['enrollments'] : 1);
+        $invoice->status = ($data['repeat_when'] == 'fixed' ? 'paid' : $status);
 
-        $json['data'] = $data;
-        $json['$invoice'] = $invoice->data();
+        if (!$invoice->save()) {
+            $json['message'] = $invoice->message()->before("Ooops! ")->render();
+            echo json_encode($json);
+            return;
+        }
+
+        if ($invoice->repeat_when == "enrollment") {
+            $invoiceOf = $invoice->id;
+            for ($enrollment = 1; $enrollment < $invoice->enrollments; $enrollment++) {
+                $invoice->id = null;
+                $invoice->invoice_of = $invoiceOf;
+                $invoice->due_at = date('Y-m-d', strtotime($data['due_at'] . "+{$enrollment}month"));
+                $invoice->status = (date($invoice->due_at) <= date("Y-m-d") ? "paid" : "unpaid");
+                $invoice->enrollment_of = $enrollment + 1;
+
+                if (!$invoice->save()) {
+                    $json['message'] = $invoice->message()->before("Ooops! ")->render();
+                    echo json_encode($json);
+                    return;
+                }
+
+            }
+        }
+
+        if ($invoice->type == 'income') {
+            $this->message->success("Receita lançada com sucesso. Use o filtro para controlar.")->render();
+        } else {
+            $this->message->success("Despesa lançada com sucesso. Use o filtro para controlar.")->render();
+        }
+        $json['reload'] = true;
         echo json_encode($json);
     }
 

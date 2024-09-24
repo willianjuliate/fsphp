@@ -6,9 +6,10 @@ use Source\Core\Model;
 
 /**
  * Description of AppInvoice
- * @property int $user_id
- * @property int wallet_id
- * @property int category_id
+ * @property int|null $id
+ * @property int|null $user_id
+ * @property int|null wallet_id
+ * @property int|null category_id
  * @property int|null invoice_of
  * @property string description
  * @property string type
@@ -17,6 +18,9 @@ use Source\Core\Model;
  * @property string due_at
  * @property string repeat_when
  * @property string status
+ * @property string period
+ * @property int enrollments
+ * @property int enrollment_of
  *
  * @author willr
  */
