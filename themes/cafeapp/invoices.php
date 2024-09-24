@@ -63,8 +63,7 @@
         <?php
         $unpaid = 0;
         $paid = 0;
-        foreach ($invoices as $invoice):
-            ?>
+        foreach ($invoices as $invoice): ?>
             <article class="app_launch_item">
                 <p class="desc app_invoice_link transition">
                     <a title="<?= $invoice->description; ?>"

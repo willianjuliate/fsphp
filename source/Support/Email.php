@@ -72,8 +72,8 @@ class Email
     }
 
     /**
-     * @param $from
-     * @param $fromName
+     * @param string $from
+     * @param string $fromName
      * @return bool
      */
     public function send(string $from = CONF_MAIL_SENDER['address'], string $fromName = CONF_MAIL_SENDER["name"]): bool
@@ -118,7 +118,7 @@ class Email
      * @param int $perSecond
      * @return void
      */
-    public function sendQueue(int $perSecond = 5)
+    public function sendQueue(int $perSecond = 5): void
     {
         $stmt = Connect::getInstance()->query("SELECT * FROM mail_queue WHERE sent_at IS NULL");
 

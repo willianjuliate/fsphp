@@ -3,12 +3,15 @@
 namespace Source\App;
 
 use Source\Core\Controller;
+use Source\Core\View;
 use Source\Models\Auth;
 use Source\Models\CafeApp\AppInvoice;
+use Source\Models\Category;
 use Source\Models\Report\Access;
 use Source\Models\Report\Online;
 use Source\Models\User;
 use Source\Models\Post;
+use Source\Support\Email;
 use Source\Support\Message;
 
 /**
@@ -156,8 +159,15 @@ class App extends Controller
             false
         );
 
-        echo $this->view->render("income", [
-            "head" => $head
+        $categories = (new Category())->find("type = :t", "t=income", "id, name")
+            ->order("order_by, name")
+            ->fetch("true");
+
+        echo $this->view->render("invoices", [
+            "user" => $this->user,
+            "head" => $head,
+            "type" => "income",
+            "categories" => $categories
         ]);
     }
 
@@ -174,7 +184,7 @@ class App extends Controller
             false
         );
 
-        echo $this->view->render("expense", [
+        echo $this->view->render("invoices", [
             "head" => $head
         ]);
     }
@@ -242,6 +252,51 @@ class App extends Controller
         }
         $json['reload'] = true;
         echo json_encode($json);
+    }
+
+    public function support(array $data): void
+    {
+        if (empty($data['message'])) {
+            $json["message"] = $this->message->warning("Para enviar escreva sua mensagem.")->render();
+            echo json_encode($json);
+            return;
+        }
+
+        if (request_limit("appsupport", 3, 5 * 60)) {
+            $json['message'] = $this->message->warning("Por favor, aguarde 5 minutos para enviar novos contatos, sugestões ou reclamações")
+                ->render();
+            echo json_encode($json);
+            return;
+        }
+
+        if (request_repeat("message", $data["message"])) {
+            $json['message'] = $this->message->info("Já recebemos sua solicitação {$this->user->first_name}. Agredecemos o seu contato")
+                ->render();
+            echo json_encode($json);
+            return;
+        }
+
+        $subject = date_fmt() . " - {$data['subject']}";
+        $message = filter_var($data['message'], FILTER_SANITIZE_SPECIAL_CHARS);
+
+        $view = new View(__DIR__ . "/../../shared/views/email/");
+
+        $body = $view->render("mail", [
+            "subject" => $subject,
+            "message" => str_textarea($message)
+        ]);
+
+        (new Email())->bootstrap(
+            $subject,
+            $body,
+            CONF_MAIL_SUPPORT,
+            "Suporte " . CONF_SITE_NAME
+        )->queue($this->user->email, "{$this->user->first_name} {$this->user->last_name}");
+
+        $this->message->success("Recebemos sua solicitação {$this->user->first_name}. Agradecemos pelo contato e responderemos em breve")->flash();
+        $json['reload'] = true;
+        echo json_encode($json);
+
     }
 
     /**
