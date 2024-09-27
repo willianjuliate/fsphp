@@ -3,30 +3,32 @@
 <div class="app_launch_header">
 
     <form class="app_launch_form_filter app_form" action="<?= url("/app/filter"); ?>" method="post">
-        <input type="hidden" name="filter" value="<?= $type; ?>"/>
+        <input type="hidden" name="filter" value="<?= $type; ?>" />
 
         <select name="status">
-            <option value="all" <?= (empty($filter->status) ? "selected" : ""); ?>>Todas</option>
-            <option value="paid" <?= (!empty($filter->status) && $filter->status == "paid" ? "selected" : ""); ?>><?= ($type == 'income' ? "Receitas recebidas" : "Despesas pagas"); ?></option>
-            <option value="unpaid" <?= (!empty($filter->status) && $filter->status == "unpaid" ? "selected" : ""); ?>><?= ($type == 'income' ? "Receitas não recebidas" : "Despesas não pagas"); ?></option>
+            <option value="all" <?= empty($filter->status) ? "selected" : ""; ?>>Todas</option>
+            <option value="paid" <?= !empty($filter->status) && $filter->status == "paid" ? "selected" : ""; ?>>
+                <?= $type == 'income' ? "Receitas recebidas" : "Despesas pagas"; ?></option>
+            <option value="unpaid" <?= !empty($filter->status) && $filter->status == "unpaid" ? "selected" : ""; ?>>
+                <?= $type == 'income' ? "Receitas não recebidas" : "Despesas não pagas"; ?></option>
         </select>
 
         <select name="category">
-            <option value="">Todas</option>
+            <option value="all">Todas</option>
             <?php foreach ($categories as $category): ?>
-                <option <?= (!empty($filter->category) && $filter->category == $category->id ? "selected" : ""); ?>
-                        value="<?= $category->id; ?>"><?= $category->name; ?></option>
+                <option <?= !empty($filter->category) && $filter->category == $category->id ? "selected" : ""; ?>
+                    value="<?= $category->id; ?>"><?= $category->name; ?></option>
             <?php endforeach; ?>
         </select>
 
         <input list="datelist" type="text" class="radius mask-month" name="date"
-               placeholder="<?= (!empty($filter->date) ? $filter->date : date("m/Y")); ?>">
+            placeholder="<?= (!empty($filter->date) ? $filter->date : date("m/Y")); ?>">
 
         <datalist id="datelist">
             <?php for ($range = -2; $range <= 2; $range++):
                 $dateRange = date("m/Y", strtotime(date("Y-m-01") . "+{$range}month"));
                 ?>
-                <option value="<?= $dateRange; ?>"/>
+                <option value="<?= $dateRange; ?>" />
             <?php endfor; ?>
         </datalist>
 
@@ -34,7 +36,7 @@
     </form>
 
     <div class="app_launch_btn <?= $type; ?> radius transition icon-plus-circle"
-         data-modalopen=".app_modal_<?= $type; ?>">Lançar
+        data-modalopen=".app_modal_<?= $type; ?>">Lançar
         <?= ($type == "income" ? "Receita" : "Despesa"); ?>
     </div>
 </div>
@@ -63,12 +65,17 @@
         <?php
         $unpaid = 0;
         $paid = 0;
-        foreach ($invoices as $invoice): ?>
+        foreach ($invoices as $invoice):
+            $invoice->enrollment_of = $invoice->enrollment_of ?? 0;
+            $invoice->enrollments = $invoice->enrollments ?? 0;
+            ?>
             <article class="app_launch_item">
                 <p class="desc app_invoice_link transition">
-                    <a title="<?= $invoice->description; ?>"
-                       href="<?= url("/app/fatura/{$invoice->id}"); ?>"><?= str_limit_words($invoice->description,
-                            3, "&nbsp;<span class='icon-info icon-notext'></span>") ?></a>
+                    <a title="<?= $invoice->description; ?>" href="<?= url("/app/fatura/{$invoice->id}"); ?>"><?= str_limit_words(
+                            $invoice->description,
+                            3,
+                            "&nbsp;<span class='icon-info icon-notext'></span>"
+                        ) ?></a>
                 </p>
                 <p class="date">Dia <?= date_fmt($invoice->due_at, "d"); ?></p>
                 <p class="category"><?= $invoice->category()->name; ?></p>
@@ -76,11 +83,15 @@
                     <?php if ($invoice->repeat_when == "fixed"): ?>
                         <span class="app_invoice_link">
                             <a href="<?= url("/app/fatura/{$invoice->invoice_of}"); ?>" class="icon-exchange"
-                               title="Controlar">Fixa</a>
+                                title="Controlar">Fixa</a>
                         </span>
                     <?php elseif ($invoice->repeat_when == 'enrollment'): ?>
-                        <?= str_pad($invoice->enrollment_of, 2, 0, 0); ?> de <?= str_pad($invoice->enrollments, 2, 0,
-                            0); ?>
+                        <?= str_pad($invoice->enrollment_of, 2, 0, 0); ?> de <?= str_pad(
+                                  $invoice->enrollments,
+                                  2,
+                                  0,
+                                  0
+                              ); ?>
                     <?php else: ?>
                         <span class="icon-calendar-check-o">Única</span>
                     <?php endif; ?>
@@ -88,18 +99,16 @@
                 <p class="price">
                     <span>R$</span>
                     <span><?= str_price($invoice->value); ?></span>
-                    <?php if ($invoice->status == 'unpaid'): $unpaid += $invoice->value; ?>
+                    <?php if ($invoice->status == 'unpaid'):
+                        $unpaid += $invoice->value; ?>
                         <span class="check <?= $type; ?> icon-thumbs-o-down transition"
-                              data-toggleclass="active icon-thumbs-o-down icon-thumbs-o-up"
-                              data-onpaid="<?= url("/app/onpaid"); ?>"
-                              data-date="<?= ($filter->date ?? date("m/Y")); ?>"
-                              data-invoice="<?= $invoice->id; ?>"></span>
-                    <?php else: $paid += $invoice->value; ?>
+                            data-toggleclass="active icon-thumbs-o-down icon-thumbs-o-up" data-onpaid="<?= url("/app/onpaid"); ?>"
+                            data-date="<?= ($filter->date ?? date("m/Y")); ?>" data-invoice="<?= $invoice->id; ?>"></span>
+                    <?php else:
+                        $paid += $invoice->value; ?>
                         <span class="check <?= $type; ?> icon-thumbs-o-up transition"
-                              data-toggleclass="active icon-thumbs-o-down icon-thumbs-o-up"
-                              data-onpaid="<?= url("/app/onpaid"); ?>"
-                              data-date="<?= ($filter->date ?? date("m/Y")); ?>"
-                              data-invoice="<?= $invoice->id; ?>"></span>
+                            data-toggleclass="active icon-thumbs-o-down icon-thumbs-o-up" data-onpaid="<?= url("/app/onpaid"); ?>"
+                            data-date="<?= ($filter->date ?? date("m/Y")); ?>" data-invoice="<?= $invoice->id; ?>"></span>
                     <?php endif; ?>
                 </p>
             </article>

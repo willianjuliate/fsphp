@@ -60,14 +60,20 @@ $route->get("/termos", "Web@terms");
 // Start GRUPO
 $route->group("/app");
 $route->get("/", "App@home");
+
 $route->get("/receber", "App@income");
+$route->get("/receber/{status}/{category}/{date}", "App@income");
+
 $route->get("/pagar", "App@expense");
+$route->get("/pagar/{status}/{category}/{date}", "App@expense");
+
 $route->get("/fatura/{invoice}", "App@invoice");
 $route->get("/perfil", "App@profile");
 $route->get("/sair", "App@logout");
 
 $route->post("/launch", "App@launch");
 $route->post("/support", "App@support");
+$route->post("/filter", "App@filter");
 // End GRUPO
 
 /*
@@ -87,7 +93,7 @@ $route->dispatch();
  */
 
 if ($route->error()) {
-    //$route->redirect("/oops/{$route->error()}");
+    $route->redirect("/oops/{$route->error()}");
 }
 
 

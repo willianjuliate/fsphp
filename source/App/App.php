@@ -5,8 +5,8 @@ namespace Source\App;
 use Source\Core\Controller;
 use Source\Core\View;
 use Source\Models\Auth;
+use Source\Models\CafeApp\AppCategory;
 use Source\Models\CafeApp\AppInvoice;
-use Source\Models\Category;
 use Source\Models\Report\Access;
 use Source\Models\Report\Online;
 use Source\Models\User;
@@ -38,6 +38,7 @@ class App extends Controller
 
         (new Access())->report();
         (new Online())->report();
+        (new AppInvoice())->fixed($this->user, 3);
     }
 
     /**
@@ -146,10 +147,45 @@ class App extends Controller
         ]);
     }
 
+   
+    /**
+     * @param array $data
+     * @return void
+     */
+    public function filter(array $data)
+    {
+        $status = !empty($data['status']) ? $data['status'] : "all";
+        $category = !empty($data['category']) ? $data['category'] : "all";
+        $date = !empty($data['date']) ? $data['date'] : date("m/Y");
+
+        list($m, $y) = explode("/", $date);
+        $m = $m >= 1 && $m <= 12 ? $m : date('m');
+        $y = $y <= date(
+            "Y",
+            strtotime("+10year")
+        ) ? $y : date("Y", strtotime("+10year"));
+
+        $start = new \DateTime(date("Y-m-t"));
+        $end = new \DateTime(date("Y-m-t", strtotime("{$y}-{$m}+1month")));
+        $diff = $start->diff($end);
+
+        if ($diff->invert) {
+            $afterMonth = floor($diff->days / 30);
+            (new AppInvoice())->fixed($this->user, $afterMonth);
+        }
+
+        $redirect = $data['filter'] == "income" ? "receber" : "pagar";
+        $json['redirect'] = url("/app/{$redirect}/{$status}/{$category}/{$m}-{$y}");        
+        echo json_encode($json);
+
+    }
+
     /**
      * APP INCOME (Receber)
+     * @param array|null $data
+     * @return void
      */
-    public function income(): void
+    public function income(?array $data): void
     {
         $head = $this->seo->render(
             "Minhas receitas - " . CONF_SITE_NAME,
@@ -159,22 +195,30 @@ class App extends Controller
             false
         );
 
-        $categories = (new Category())->find("type = :t", "t=income", "id, name")
+        $categories = (new AppCategory())->find("type = :t", "t=income", "id, name")
             ->order("order_by, name")
-            ->fetch("true");
+            ->fetch(true);        
 
         echo $this->view->render("invoices", [
             "user" => $this->user,
             "head" => $head,
             "type" => "income",
-            "categories" => $categories
+            "categories" => $categories,
+            "invoices" => (new AppInvoice())->filter($this->user, 'income', $data ?? null),
+            "filter" => (object) [
+                "status" => ($data["status"] ?? null),
+                "category" => ($data["category"] ?? null),
+                "date" => (!empty($data['date']) ? str_replace("-", "/", $data['date']) : null)
+            ]
         ]);
     }
 
+
     /**
-     * APP EXPENSE (Pagar)
+     * @param array|null $data
+     * @return void
      */
-    public function expense(): void
+    public function expense(?array $data): void
     {
         $head = $this->seo->render(
             "Minhas despesas - " . CONF_SITE_NAME,
@@ -184,11 +228,28 @@ class App extends Controller
             false
         );
 
+        $categories = (new AppCategory())->find("type = :t", "t=expense", "id, name")
+            ->order("order_by, name")
+            ->fetch(true);
+
         echo $this->view->render("invoices", [
-            "head" => $head
+            "user" => $this->user,
+            "head" => $head,
+            "type" => "expense",
+            "categories" => $categories,
+            "invoices" => (new AppInvoice())->filter($this->user, 'expense', $data ?? null),
+            "filter" => (object) [
+                "status" => ($data["status"] ?? null),
+                "category" => ($data["category"] ?? null),
+                "date" => (!empty($data['date']) ? str_replace("-", "/", $data['date']) : null)
+            ]
         ]);
     }
 
+    /**
+     * @param array $data
+     * @return void
+     */
     public function launch(array $data): void
     {
         if (request_limit("applaunch", 20, 60 * 5)) {
@@ -250,10 +311,15 @@ class App extends Controller
         } else {
             $this->message->success("Despesa lançada com sucesso. Use o filtro para controlar.")->render();
         }
+
         $json['reload'] = true;
         echo json_encode($json);
     }
 
+    /**
+     * @param array $data
+     * @return void
+     */
     public function support(array $data): void
     {
         if (empty($data['message'])) {
